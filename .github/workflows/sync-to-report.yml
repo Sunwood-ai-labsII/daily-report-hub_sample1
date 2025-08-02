@@ -1,0 +1,33 @@
+name: Sync to Report Repository
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [merged]
+
+jobs:
+  sync-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 差分取得用
+      
+      - name: Get diff info
+        run: |
+          # 差分情報を取得
+          git diff HEAD~1 --name-status > diff.txt
+          git log -1 --pretty=format:"%h %s" > commit.txt
+      
+      - name: Push to report repo
+        run: |
+          # 集約リポジトリにREADMEと差分情報をプッシュ
+          git clone https://${{ secrets.REPORT_TOKEN }}@github.com/user/report-repo.git
+          mkdir -p report-repo/projects/$(basename $GITHUB_REPOSITORY)
+          cp README.md report-repo/projects/$(basename $GITHUB_REPOSITORY)/
+          cp diff.txt commit.txt report-repo/projects/$(basename $GITHUB_REPOSITORY)/
+          cd report-repo
+          git add .
+          git commit -m "Update from $GITHUB_REPOSITORY"
+          git push
