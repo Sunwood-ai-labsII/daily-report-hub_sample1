@@ -21,16 +21,22 @@ jobs:
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           
           # 差分情報を取得
-          git diff HEAD~1 --name-status > diff.txt
+          git diff HEAD~1 --name-status > diff.txt || echo "No diff available" > diff.txt
           git log -1 --pretty=format:"%h %s %an %ad" --date=short > commit.txt
           
           # 現在時刻を追加
           echo "Updated: $(date '+%Y-%m-%d %H:%M:%S')" > update_time.txt
       
-      - name: Clone report hub and update
+      - name: Clone and update report hub
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPORT_TOKEN }}
         run: |
-          # daily-report-hubをクローン
-          git clone https://${{ secrets.REPORT_HUB_TOKEN }}@github.com/Sunwood-ai-labs/daily-report-hub.git
+          # Git設定を先に行う
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # daily-report-hubをクローン（認証情報を含むURL）
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/Sunwood-ai-labs/daily-report-hub.git
           
           # プロジェクトディレクトリを作成
           mkdir -p daily-report-hub/projects/$REPO_NAME
@@ -51,12 +57,15 @@ jobs:
             "workflow_run": "$GITHUB_RUN_ID"
           }
           EOF
-      
-      - name: Commit and push to report hub
-        run: |
+          
+          # 変更をコミット・プッシュ
           cd daily-report-hub
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
           git add .
-          git commit -m "Update from $GITHUB_REPOSITORY - $(date '+%Y-%m-%d %H:%M:%S')" || exit 0
-          git push
+          
+          # 変更があるかチェック
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update from $GITHUB_REPOSITORY - $(date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
