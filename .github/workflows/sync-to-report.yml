@@ -1,7 +1,7 @@
-name: Sync to Report Repository
+name: Sync to Daily Report Hub
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
     types: [merged]
 
@@ -9,25 +9,54 @@ jobs:
   sync-data:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout current repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 2  # 差分取得用
       
-      - name: Get diff info
+      - name: Get repository info and diff
         run: |
+          # リポジトリ名を取得
+          REPO_NAME=$(basename $GITHUB_REPOSITORY)
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          
           # 差分情報を取得
           git diff HEAD~1 --name-status > diff.txt
-          git log -1 --pretty=format:"%h %s" > commit.txt
+          git log -1 --pretty=format:"%h %s %an %ad" --date=short > commit.txt
+          
+          # 現在時刻を追加
+          echo "Updated: $(date '+%Y-%m-%d %H:%M:%S')" > update_time.txt
       
-      - name: Push to report repo
+      - name: Clone report hub and update
         run: |
-          # 集約リポジトリにREADMEと差分情報をプッシュ
-          git clone https://${{ secrets.REPORT_TOKEN }}@github.com/user/report-repo.git
-          mkdir -p report-repo/projects/$(basename $GITHUB_REPOSITORY)
-          cp README.md report-repo/projects/$(basename $GITHUB_REPOSITORY)/
-          cp diff.txt commit.txt report-repo/projects/$(basename $GITHUB_REPOSITORY)/
-          cd report-repo
+          # daily-report-hubをクローン
+          git clone https://${{ secrets.REPORT_HUB_TOKEN }}@github.com/Sunwood-ai-labs/daily-report-hub.git
+          
+          # プロジェクトディレクトリを作成
+          mkdir -p daily-report-hub/projects/$REPO_NAME
+          
+          # ファイルをコピー
+          cp README.md daily-report-hub/projects/$REPO_NAME/ 2>/dev/null || echo "# $REPO_NAME" > daily-report-hub/projects/$REPO_NAME/README.md
+          cp diff.txt daily-report-hub/projects/$REPO_NAME/
+          cp commit.txt daily-report-hub/projects/$REPO_NAME/
+          cp update_time.txt daily-report-hub/projects/$REPO_NAME/
+          
+          # メタデータファイルを作成
+          cat > daily-report-hub/projects/$REPO_NAME/metadata.json << EOF
+          {
+            "repository": "$GITHUB_REPOSITORY",
+            "branch": "$GITHUB_REF_NAME",
+            "commit_sha": "$GITHUB_SHA",
+            "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow_run": "$GITHUB_RUN_ID"
+          }
+          EOF
+      
+      - name: Commit and push to report hub
+        run: |
+          cd daily-report-hub
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
           git add .
-          git commit -m "Update from $GITHUB_REPOSITORY"
+          git commit -m "Update from $GITHUB_REPOSITORY - $(date '+%Y-%m-%d %H:%M:%S')" || exit 0
           git push
