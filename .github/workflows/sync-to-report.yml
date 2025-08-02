@@ -26,27 +26,36 @@ jobs:
           
           # その日の全コミット履歴を取得（時刻順）
           git log --since="$DATE 00:00:00" --until="$DATE 23:59:59" \
-            --pretty=format:"%h|%s|%an|%ad|%f" --date=format:'%H:%M:%S' \
+            --pretty=format:"%h|%s|%an|%ad" --date=format:'%H:%M:%S' \
             --reverse > daily_commits.txt
           
           # コミット数をカウント
           COMMIT_COUNT=$(wc -l < daily_commits.txt)
           echo "📊 Found $COMMIT_COUNT commits for today"
           
-          # その日の全ての差分を統合（最初のコミットから最新まで）
-          FIRST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" --reverse | head -1)
-          LAST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" | head -1)
-          
-          if [ ! -z "$FIRST_COMMIT_TODAY" ] && [ ! -z "$LAST_COMMIT_TODAY" ]; then
-            if [ "$FIRST_COMMIT_TODAY" != "$LAST_COMMIT_TODAY" ]; then
-              # 複数コミットがある場合：その日の最初から最後までの差分
+          # その日の全ての差分を統合（安全な方法で）
+          if [ $COMMIT_COUNT -gt 0 ]; then
+            FIRST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" --reverse | head -1)
+            LAST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" | head -1)
+            
+            echo "First commit: $FIRST_COMMIT_TODAY"
+            echo "Last commit: $LAST_COMMIT_TODAY"
+            
+            # 親コミットが存在するかチェック
+            if git rev-parse --verify "$FIRST_COMMIT_TODAY^" >/dev/null 2>&1; then
+              # 親コミットが存在する場合
               PARENT_OF_FIRST=$(git rev-parse $FIRST_COMMIT_TODAY^)
-              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --name-status > daily_cumulative_diff.txt
-              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --stat > daily_diff_stats.txt
+              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --name-status > daily_cumulative_diff.txt 2>/dev/null || echo "No diff available" > daily_cumulative_diff.txt
+              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --stat > daily_diff_stats.txt 2>/dev/null || echo "No stats available" > daily_diff_stats.txt
             else
-              # 1つのコミットのみの場合：そのコミットの差分
-              git diff $FIRST_COMMIT_TODAY^ $FIRST_COMMIT_TODAY --name-status > daily_cumulative_diff.txt
-              git diff $FIRST_COMMIT_TODAY^ $FIRST_COMMIT_TODAY --stat > daily_diff_stats.txt
+              # 初回コミットの場合（親が存在しない）
+              echo "Initial commit detected - showing all files as new"
+              git diff --name-status 4b825dc642cb6eb9a060e54bf8d69288fbee4904..$LAST_COMMIT_TODAY > daily_cumulative_diff.txt 2>/dev/null || \
+              git ls-tree --name-status $LAST_COMMIT_TODAY > daily_cumulative_diff.txt 2>/dev/null || \
+              echo "A\t(all files added in initial commit)" > daily_cumulative_diff.txt
+              
+              git diff --stat 4b825dc642cb6eb9a060e54bf8d69288fbee4904..$LAST_COMMIT_TODAY > daily_diff_stats.txt 2>/dev/null || \
+              echo "Initial commit - all files added" > daily_diff_stats.txt
             fi
           else
             echo "No commits found for today" > daily_cumulative_diff.txt
@@ -54,34 +63,40 @@ jobs:
           fi
           
           # 最新コミットの個別差分
-          git diff HEAD~1 --name-status > latest_diff.txt 2>/dev/null || echo "No recent diff" > latest_diff.txt
+          git diff HEAD~1 --name-status > latest_diff.txt 2>/dev/null || echo "No recent diff available" > latest_diff.txt
           
           # 詳細なアクティビティサマリーを作成
           if [ -s daily_commits.txt ]; then
             FIRST_COMMIT_TIME=$(head -1 daily_commits.txt | cut -d'|' -f4)
             LAST_COMMIT_TIME=$(tail -1 daily_commits.txt | cut -d'|' -f4)
-            FILES_CHANGED=$(wc -l < daily_cumulative_diff.txt)
+            FILES_CHANGED=$(grep -c '^' daily_cumulative_diff.txt 2>/dev/null || echo "0")
           else
             FIRST_COMMIT_TIME="N/A"
             LAST_COMMIT_TIME="N/A" 
             FILES_CHANGED=0
           fi
           
-          cat > daily_summary.txt << EOF
-          📅 Daily Activity Report
-          Repository: $GITHUB_REPOSITORY
-          Date: $DATE
-          Total Commits: $COMMIT_COUNT
-          Files Changed: $FILES_CHANGED
-          First Activity: $FIRST_COMMIT_TIME
-          Last Activity: $LAST_COMMIT_TIME
-          Sync Time: $(date '+%H:%M:%S')
-          
-          📝 Commit Details:
-          $(cat daily_commits.txt | while IFS='|' read hash subject author time slug; do
-            echo "  ⏰ $time - $hash: $subject ($author)"
-          done)
-          EOF
+          # サマリーファイルを作成（HEREドキュメントの代わりにechoを使用）
+          {
+            echo "📅 Daily Activity Report"
+            echo "Repository: $GITHUB_REPOSITORY"
+            echo "Date: $DATE"
+            echo "Total Commits: $COMMIT_COUNT"
+            echo "Files Changed: $FILES_CHANGED"
+            echo "First Activity: $FIRST_COMMIT_TIME"
+            echo "Last Activity: $LAST_COMMIT_TIME"
+            echo "Sync Time: $(date '+%H:%M:%S')"
+            echo ""
+            echo "📝 Commit Details:"
+            
+            if [ -s daily_commits.txt ]; then
+              while IFS='|' read -r hash subject author time; do
+                echo "  ⏰ $time - $hash: $subject ($author)"
+              done < daily_commits.txt
+            else
+              echo "  No commits today"
+            fi
+          } > daily_summary.txt
           
           echo "✅ Daily activity analysis complete!"
       
@@ -112,7 +127,7 @@ jobs:
           
           # 詳細メタデータを作成
           COMMIT_COUNT=$(wc -l < daily_commits.txt)
-          FILES_CHANGED=$(wc -l < daily_cumulative_diff.txt)
+          FILES_CHANGED=$(grep -c '^' daily_cumulative_diff.txt 2>/dev/null || echo "0")
           
           cat > "$TARGET_DIR/metadata.json" << EOF
           {
