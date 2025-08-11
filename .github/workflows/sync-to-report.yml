@@ -1,4 +1,4 @@
-name: Sync to Daily Report Hub v1.1
+name: Sync to Daily Report Hub v1.2
 on:
   push:
     branches: [main, master]
@@ -237,13 +237,14 @@ jobs:
       - name: Clone and update report hub
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
         run: |
           # Git設定
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
           # daily-report-hubをクローン
-          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/Sunwood-ai-labs/daily-report-hub.git
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${REPORT_HUB_REPO}.git daily-report-hub
           
           # 日付ベースのディレクトリ構造を作成
           TARGET_DIR="daily-report-hub/activities/$DATE/$REPO_NAME"
