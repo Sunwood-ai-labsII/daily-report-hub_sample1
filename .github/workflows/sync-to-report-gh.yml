@@ -1,4 +1,4 @@
-name: Sync to Daily Report Hub v2.2 (Fixed)
+name: Sync to Daily Report Hub v2.2 (PR Enabled)
 on:
   push:
     branches: [main, master]
@@ -10,7 +10,7 @@ env:
   WEEK_START_DAY: 1 # 週の開始日 (0=日曜日, 1=月曜日, 2=火曜日, 3=水曜日, 4=木曜日, 5=金曜日, 6=土曜日)
   AUTO_APPROVE: true # プルリクエストの自動承認 (true/false)
   AUTO_MERGE: true # プルリクエストの自動マージ (true/false)
-  CREATE_PR: true # プルリクエストを作成するか直接プッシュするか (true/false)
+  CREATE_PR: true # プルリクエストを作成する！
 
 jobs:
   sync-data:
@@ -20,11 +20,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup GitHub CLI
-        run: |
-          gh --version
-          echo "GitHub CLI is ready"
 
       - name: Make scripts executable
         run: chmod +x .github/scripts/*.sh
@@ -47,8 +42,10 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-          # GitHub CLI認証
-          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          # GitHub CLI認証（別の方法で認証）
+          echo "$GITHUB_TOKEN" > ~/.gh_token
+          gh auth login --with-token < ~/.gh_token
+          rm ~/.gh_token
           
           # 認証確認
           gh auth status
