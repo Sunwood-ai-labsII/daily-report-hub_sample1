@@ -33,14 +33,14 @@ get_status_icon() {
       
       # 各コミットの変更ファイル一覧を表示
       echo "### 📋 Changed Files"
-      echo "\`\`\`"
+      echo "\`\`\`bash"
       git show --name-status $hash 2>/dev/null | grep -E '^[AMDRC]' || echo "No file changes"
       echo "\`\`\`"
       echo ""
       
       # 各コミットの統計情報を表示
       echo "### 📊 Statistics"
-      echo "\`\`\`"
+      echo "\`\`\`bash"
       git show --stat $hash 2>/dev/null | tail -n +2 || echo "No statistics available"
       echo "\`\`\`"
       echo ""
@@ -80,7 +80,9 @@ get_status_icon() {
 {
   echo "# 📈 Daily Statistics"
   echo ""
-  add_indent daily_diff_stats_raw.txt
+  echo "\`\`\`diff"
+  cat daily_diff_stats_raw.txt
+  echo "\`\`\`"
 } > daily_diff_stats.md
 
 # コード差分をMarkdown形式で作成
@@ -159,7 +161,9 @@ fi
     
     echo "## 📈 File Changes Statistics"
     echo ""
-    add_indent daily_diff_stats_raw.txt
+    echo "\`\`\`diff"
+    cat daily_diff_stats_raw.txt
+    echo "\`\`\`"
     echo ""
     
     echo "## 📋 Changed Files List"
