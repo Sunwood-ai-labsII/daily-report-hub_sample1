@@ -1,4 +1,4 @@
-name: Sync to Daily Report Hub v2.2 (PR Enabled)
+name: Sync to Daily Report Hub v2.0 (GitHub CLI)
 on:
   push:
     branches: [main, master]
@@ -10,7 +10,7 @@ env:
   WEEK_START_DAY: 1 # 週の開始日 (0=日曜日, 1=月曜日, 2=火曜日, 3=水曜日, 4=木曜日, 5=金曜日, 6=土曜日)
   AUTO_APPROVE: true # プルリクエストの自動承認 (true/false)
   AUTO_MERGE: true # プルリクエストの自動マージ (true/false)
-  CREATE_PR: true # プルリクエストを作成する！
+  CREATE_PR: true # プルリクエストを作成するか直接プッシュするか (true/false)
 
 jobs:
   sync-data:
@@ -19,7 +19,12 @@ jobs:
       - name: Checkout current repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # 全履歴を取得してその日の全コミットを追跡
+
+      - name: Setup GitHub CLI
+        run: |
+          # GitHub CLIは既にubuntu-latestにインストール済み
+          gh --version
 
       - name: Make scripts executable
         run: chmod +x .github/scripts/*.sh
@@ -36,19 +41,14 @@ jobs:
       - name: Clone report hub and create structure
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
         run: |
           # Git設定
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-          # GitHub CLI認証（別の方法で認証）
-          echo "$GITHUB_TOKEN" > ~/.gh_token
-          gh auth login --with-token < ~/.gh_token
-          rm ~/.gh_token
-          
-          # 認証確認
-          gh auth status
+          # GitHub CLI認証
+          echo "$GITHUB_TOKEN" | gh auth login --with-token
 
           # daily-report-hubをクローン
           git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${REPORT_HUB_REPO}.git daily-report-hub
@@ -59,7 +59,7 @@ jobs:
       - name: Sync to report hub with PR flow (GitHub CLI)
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
           AUTO_APPROVE: ${{ env.AUTO_APPROVE }}
           AUTO_MERGE: ${{ env.AUTO_MERGE }}
           CREATE_PR: ${{ env.CREATE_PR }}
