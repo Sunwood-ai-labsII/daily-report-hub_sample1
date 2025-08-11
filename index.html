@@ -1,17 +1,35 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+    <!-- 基本的なメタ情報 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>おみくじアプリ</title>
+    <meta name="description" content="シンプルなウェブベースのおみくじアプリケーション">
+    <meta name="keywords" content="おみくじ, 占い, ウェブアプリ">
+    <meta name="author" content="daily-report-hub_sample1">
+    
+    <title>おみくじアプリ ⛩️</title>
+    
+    <!-- スタイルシート -->
     <link rel="stylesheet" href="style.css">
+    
+    <!-- ファビコン（将来的に追加予定） -->
+    <!-- <link rel="icon" type="image/x-icon" href="/favicon.ico"> -->
 </head>
 <body>
+    <!-- メインコンテナ -->
     <div class="container">
-        <h1>おみくじ</h1>
-        <button id="draw-button">おみくじを引く</button>
-        <p id="result"></p>
+        <!-- アプリタイトル -->
+        <h1>おみくじ ⛩️</h1>
+        
+        <!-- おみくじを引くボタン -->
+        <button id="draw-button" aria-label="おみくじを引く">おみくじを引く</button>
+        
+        <!-- 結果表示エリア -->
+        <p id="result" aria-live="polite" role="status"></p>
     </div>
+    
+    <!-- JavaScript -->
     <script src="script.js"></script>
 </body>
 </html>
