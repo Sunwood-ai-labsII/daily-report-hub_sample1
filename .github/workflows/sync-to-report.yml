@@ -236,7 +236,7 @@ jobs:
       
       - name: Clone and update report hub
         env:
-          GITHUB_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           # Git設定
           git config --global user.name "GitHub Actions Bot"
