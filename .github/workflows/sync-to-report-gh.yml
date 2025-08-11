@@ -1,4 +1,4 @@
-name: Sync to Daily Report Hub v2.0 (GitHub CLI)
+name: Sync to Daily Report Hub v2.2 (Fixed)
 on:
   push:
     branches: [main, master]
@@ -19,12 +19,12 @@ jobs:
       - name: Checkout current repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 全履歴を取得してその日の全コミットを追跡
+          fetch-depth: 0
 
       - name: Setup GitHub CLI
         run: |
-          # GitHub CLIは既にubuntu-latestにインストール済み
           gh --version
+          echo "GitHub CLI is ready"
 
       - name: Make scripts executable
         run: chmod +x .github/scripts/*.sh
@@ -41,7 +41,7 @@ jobs:
       - name: Clone report hub and create structure
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
         run: |
           # Git設定
           git config --global user.name "GitHub Actions Bot"
@@ -49,6 +49,9 @@ jobs:
 
           # GitHub CLI認証
           echo "$GITHUB_TOKEN" | gh auth login --with-token
+          
+          # 認証確認
+          gh auth status
 
           # daily-report-hubをクローン
           git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${REPORT_HUB_REPO}.git daily-report-hub
@@ -59,7 +62,7 @@ jobs:
       - name: Sync to report hub with PR flow (GitHub CLI)
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
           AUTO_APPROVE: ${{ env.AUTO_APPROVE }}
           AUTO_MERGE: ${{ env.AUTO_MERGE }}
           CREATE_PR: ${{ env.CREATE_PR }}
