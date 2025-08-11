@@ -1,4 +1,4 @@
-name: Sync to Daily Report Hub v1.2
+name: Sync to Daily Report Hub v1.3
 on:
   push:
     branches: [main, master]
