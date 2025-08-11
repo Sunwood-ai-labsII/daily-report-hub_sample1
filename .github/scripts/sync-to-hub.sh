@@ -46,6 +46,7 @@ cat > "$TARGET_DIR/metadata.json" << EOF
   "daily_files_changed": $FILES_CHANGED,
   "has_activity": $([ $COMMIT_COUNT -gt 0 ] && echo "true" || echo "false"),
   "files": {
+    "readme": "README.md",
     "summary": "daily_summary.md",
     "commits": "daily_commits.md",
     "file_changes": "daily_cumulative_diff.md",
