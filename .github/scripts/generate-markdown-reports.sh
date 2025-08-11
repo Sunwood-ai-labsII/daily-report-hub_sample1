@@ -89,7 +89,9 @@ get_status_icon() {
   echo ""
   echo "## Full Diff"
   echo ""
-  add_indent daily_code_diff_raw.txt
+  echo "\`\`\`diff"
+  cat daily_code_diff_raw.txt
+  echo "\`\`\`"
 } > daily_code_diff.md
 
 # 最新差分をMarkdown形式で作成
@@ -113,7 +115,9 @@ get_status_icon() {
 {
   echo "# 🔄 Latest Code Changes"
   echo ""
-  add_indent latest_code_diff_raw.txt
+  echo "\`\`\`diff"
+  cat latest_code_diff_raw.txt
+  echo "\`\`\`"
 } > latest_code_diff.md
 
 # 詳細なアクティビティサマリーをMarkdown形式で作成
