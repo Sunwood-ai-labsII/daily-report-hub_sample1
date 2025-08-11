@@ -1,9 +1,13 @@
-name: Sync to Daily Report Hub v1.3
+name: Sync to Daily Report Hub v1.4
 on:
   push:
     branches: [main, master]
   pull_request:
-    types: [merged]
+    types: [opened, synchronize, closed]
+
+# 週の開始日を制御する設定
+env:
+  WEEK_START_DAY: 1 # 週の開始日 (0=日曜日, 1=月曜日, 2=火曜日, 3=水曜日, 4=木曜日, 5=金曜日, 6=土曜日)
 
 jobs:
   sync-data:
@@ -14,250 +18,19 @@ jobs:
         with:
           fetch-depth: 0 # 全履歴を取得してその日の全コミットを追跡
 
-      - name: Get repository info and daily activities
-        run: |
-          # リポジトリ名と日付を取得
-          REPO_NAME=$(basename $GITHUB_REPOSITORY)
-          DATE=$(date '+%Y-%m-%d')
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "DATE=$DATE" >> $GITHUB_ENV
+      - name: Make scripts executable
+        run: chmod +x .github/scripts/*.sh
 
-          echo "🔍 Fetching all commits for $DATE..."
+      - name: Calculate week information
+        run: ./.github/scripts/calculate-week-info.sh ${{ env.WEEK_START_DAY }}
 
-          # その日の全コミット履歴を取得（時刻順）
-          git log --since="$DATE 00:00:00" --until="$DATE 23:59:59" \
-            --pretty=format:"%h|%s|%an|%ad" --date=format:'%H:%M:%S' \
-            --reverse > daily_commits_raw.txt
+      - name: Analyze Git activity
+        run: ./.github/scripts/analyze-git-activity.sh
 
-          # コミット数をカウント
-          COMMIT_COUNT=$(wc -l < daily_commits_raw.txt)
-          echo "📊 Found $COMMIT_COUNT commits for today"
+      - name: Generate Markdown reports
+        run: ./.github/scripts/generate-markdown-reports.sh
 
-          # その日の全ての差分を統合（安全な方法で）
-          if [ $COMMIT_COUNT -gt 0 ]; then
-            FIRST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" --reverse | head -1)
-            LAST_COMMIT_TODAY=$(git log --since="$DATE 00:00:00" --pretty=format:"%H" | head -1)
-            
-            echo "First commit: $FIRST_COMMIT_TODAY"
-            echo "Last commit: $LAST_COMMIT_TODAY"
-            
-            # 親コミットが存在するかチェック
-            if git rev-parse --verify "$FIRST_COMMIT_TODAY^" >/dev/null 2>&1; then
-              # 親コミットが存在する場合
-              PARENT_OF_FIRST=$(git rev-parse $FIRST_COMMIT_TODAY^)
-              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --name-status > daily_cumulative_diff_raw.txt 2>/dev/null || echo "No diff available" > daily_cumulative_diff_raw.txt
-              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY --stat > daily_diff_stats_raw.txt 2>/dev/null || echo "No stats available" > daily_diff_stats_raw.txt
-              # コードの詳細差分を取得
-              git diff $PARENT_OF_FIRST..$LAST_COMMIT_TODAY > daily_code_diff_raw.txt 2>/dev/null || echo "No code diff available" > daily_code_diff_raw.txt
-            else
-              # 初回コミットの場合（親が存在しない）
-              echo "Initial commit detected - showing all files as new"
-              git diff --name-status 4b825dc642cb6eb9a060e54bf8d69288fbee4904..$LAST_COMMIT_TODAY > daily_cumulative_diff_raw.txt 2>/dev/null || \
-              git ls-tree --name-status $LAST_COMMIT_TODAY > daily_cumulative_diff_raw.txt 2>/dev/null || \
-              echo "A\t(all files added in initial commit)" > daily_cumulative_diff_raw.txt
-              
-              git diff --stat 4b825dc642cb6eb9a060e54bf8d69288fbee4904..$LAST_COMMIT_TODAY > daily_diff_stats_raw.txt 2>/dev/null || \
-              echo "Initial commit - all files added" > daily_diff_stats_raw.txt
-              
-              # 初回コミットのコード内容
-              git show $LAST_COMMIT_TODAY > daily_code_diff_raw.txt 2>/dev/null || echo "No code diff available" > daily_code_diff_raw.txt
-            fi
-          else
-            echo "No commits found for today" > daily_cumulative_diff_raw.txt
-            echo "No commits found for today" > daily_diff_stats_raw.txt
-            echo "No commits found for today" > daily_code_diff_raw.txt
-          fi
-
-          # 最新コミットの個別差分
-          git diff HEAD~1 --name-status > latest_diff_raw.txt 2>/dev/null || echo "No recent diff available" > latest_diff_raw.txt
-          git diff HEAD~1 > latest_code_diff_raw.txt 2>/dev/null || echo "No recent code diff available" > latest_code_diff_raw.txt
-
-          # Markdownファイルを作成（各行に4スペースのインデントを追加する関数）
-          add_indent() {
-            sed 's/^/    /' "$1"
-          }
-
-          # コミット詳細をMarkdown形式で作成（差分付き）
-          {
-            echo "# 📝 Daily Commits"
-            echo ""
-            if [ -s daily_commits_raw.txt ]; then
-              while IFS='|' read -r hash subject author time; do
-                echo "## ⏰ $time - \`$hash\`"
-                echo "**$subject**"
-                echo "*by $author*"
-                echo ""
-                
-                # 各コミットの変更ファイル一覧を表示
-                echo "### 📋 Changed Files"
-                echo "\`\`\`"
-                git show --name-status $hash 2>/dev/null | grep -E '^[AMDRC]' || echo "No file changes"
-                echo "\`\`\`"
-                echo ""
-                
-                # 各コミットの統計情報を表示
-                echo "### 📊 Statistics"
-                echo "\`\`\`"
-                git show --stat $hash 2>/dev/null | tail -n +2 || echo "No statistics available"
-                echo "\`\`\`"
-                echo ""
-                
-                # 各コミットのコード差分を表示（最初の100行まで）
-                echo "### 💻 Code Changes"
-                echo "\`\`\`diff"
-                git show $hash --pretty=format:"" 2>/dev/null | head -100 || echo "No code changes available"
-                echo "\`\`\`"
-                echo ""
-                echo "---"
-                echo ""
-              done < daily_commits_raw.txt
-            else
-              echo "*No commits found for today.*"
-            fi
-          } > daily_commits.md
-
-          # 累積差分をMarkdown形式で作成
-          {
-            echo "# 📋 Daily File Changes"
-            echo ""
-            if [ -s daily_cumulative_diff_raw.txt ]; then
-              while read -r line; do
-                if [ ! -z "$line" ]; then
-                  status=$(echo "$line" | cut -f1)
-                  file=$(echo "$line" | cut -f2)
-                  case $status in
-                    A) echo "- 🆕 **Added:** \`$file\`" ;;
-                    M) echo "- ✏️ **Modified:** \`$file\`" ;;
-                    D) echo "- 🗑️ **Deleted:** \`$file\`" ;;
-                    R*) echo "- 🔄 **Renamed:** \`$file\`" ;;
-                    *) echo "- 📝 **$status:** \`$file\`" ;;
-                  esac
-                fi
-              done < daily_cumulative_diff_raw.txt
-            else
-              echo "*No file changes today.*"
-            fi
-          } > daily_cumulative_diff.md
-
-          # 統計をMarkdown形式で作成
-          {
-            echo "# 📈 Daily Statistics"
-            echo ""
-            add_indent daily_diff_stats_raw.txt
-          } > daily_diff_stats.md
-
-          # コード差分をMarkdown形式で作成
-          {
-            echo "# 💻 Daily Code Changes"
-            echo ""
-            echo "## Full Diff"
-            echo ""
-            add_indent daily_code_diff_raw.txt
-          } > daily_code_diff.md
-
-          # 最新差分をMarkdown形式で作成
-          {
-            echo "# 🔄 Latest Changes (File List)"
-            echo ""
-            if [ -s latest_diff_raw.txt ]; then
-              while read -r line; do
-                if [ ! -z "$line" ]; then
-                  status=$(echo "$line" | cut -f1)
-                  file=$(echo "$line" | cut -f2)
-                  case $status in
-                    A) echo "- 🆕 **Added:** \`$file\`" ;;
-                    M) echo "- ✏️ **Modified:** \`$file\`" ;;
-                    D) echo "- 🗑️ **Deleted:** \`$file\`" ;;
-                    R*) echo "- 🔄 **Renamed:** \`$file\`" ;;
-                    *) echo "- 📝 **$status:** \`$file\`" ;;
-                  esac
-                fi
-              done < latest_diff_raw.txt
-            else
-              echo "*No recent changes.*"
-            fi
-          } > latest_diff.md
-
-          # 最新コード差分をMarkdown形式で作成
-          {
-            echo "# 🔄 Latest Code Changes"
-            echo ""
-            add_indent latest_code_diff_raw.txt
-          } > latest_code_diff.md
-
-          # 詳細なアクティビティサマリーをMarkdown形式で作成
-          if [ -s daily_commits_raw.txt ]; then
-            FIRST_COMMIT_TIME=$(head -1 daily_commits_raw.txt | cut -d'|' -f4)
-            LAST_COMMIT_TIME=$(tail -1 daily_commits_raw.txt | cut -d'|' -f4)
-            FILES_CHANGED=$(grep -c '^' daily_cumulative_diff_raw.txt 2>/dev/null || echo "0")
-          else
-            FIRST_COMMIT_TIME="N/A"
-            LAST_COMMIT_TIME="N/A" 
-            FILES_CHANGED=0
-          fi
-
-          # メインサマリーファイルを作成
-          {
-            echo "# 📅 Daily Activity Report"
-            echo ""
-            echo "## 📊 Summary"
-            echo "| Item | Value |"
-            echo "|------|-------|"
-            echo "| Repository | \`$GITHUB_REPOSITORY\` |"
-            echo "| Date | $DATE |"
-            echo "| Total Commits | **$COMMIT_COUNT** |"
-            echo "| Files Changed | **$FILES_CHANGED** |"
-            echo "| First Activity | $FIRST_COMMIT_TIME |"
-            echo "| Last Activity | $LAST_COMMIT_TIME |"
-            echo "| Sync Time | $(date '+%H:%M:%S') |"
-            echo ""
-            
-            if [ -s daily_commits_raw.txt ]; then
-              echo "## 📝 Commit Details"
-              echo ""
-              while IFS='|' read -r hash subject author time; do
-                echo "### ⏰ $time - \`$hash\`"
-                echo "**$subject**"
-                echo "*by $author*"
-                echo ""
-              done < daily_commits_raw.txt
-              
-              echo "## 📈 File Changes Statistics"
-              echo ""
-              add_indent daily_diff_stats_raw.txt
-              echo ""
-              
-              echo "## 📋 Changed Files List"
-              echo ""
-              while read -r line; do
-                if [ ! -z "$line" ]; then
-                  status=$(echo "$line" | cut -f1)
-                  file=$(echo "$line" | cut -f2)
-                  case $status in
-                    A) echo "- 🆕 **Added:** \`$file\`" ;;
-                    M) echo "- ✏️ **Modified:** \`$file\`" ;;
-                    D) echo "- 🗑️ **Deleted:** \`$file\`" ;;
-                    R*) echo "- 🔄 **Renamed:** \`$file\`" ;;
-                    *) echo "- 📝 **$status:** \`$file\`" ;;
-                  esac
-                fi
-              done < daily_cumulative_diff_raw.txt
-              echo ""
-              
-            else
-              echo "## 📝 Commit Details"
-              echo ""
-              echo "*No commits found for today.*"
-              echo ""
-            fi
-            
-            echo "---"
-            echo "*Generated by GitHub Actions at $(date '+%Y-%m-%d %H:%M:%S')*"
-          } > daily_summary.md
-
-          echo "✅ Daily activity analysis complete!"
-
-      - name: Clone and update report hub
+      - name: Clone report hub and create structure
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
@@ -265,60 +38,15 @@ jobs:
           # Git設定
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-
+          
           # daily-report-hubをクローン
           git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${REPORT_HUB_REPO}.git daily-report-hub
 
-          # 日付ベースのディレクトリ構造を作成
-          TARGET_DIR="daily-report-hub/activities/$DATE/$REPO_NAME"
-          mkdir -p "$TARGET_DIR"
+      - name: Create Docusaurus structure
+        run: ./.github/scripts/create-docusaurus-structure.sh
 
-          # README.mdをコピー
-          cp README.md "$TARGET_DIR/" 2>/dev/null || echo "# $REPO_NAME" > "$TARGET_DIR/README.md"
-
-          # 当日のアクティビティファイルをコピー（全て.mdファイル）
-          cp daily_commits.md "$TARGET_DIR/"
-          cp daily_cumulative_diff.md "$TARGET_DIR/"
-          cp daily_diff_stats.md "$TARGET_DIR/"
-          cp daily_code_diff.md "$TARGET_DIR/"
-          cp latest_diff.md "$TARGET_DIR/"
-          cp latest_code_diff.md "$TARGET_DIR/"
-          cp daily_summary.md "$TARGET_DIR/"
-
-          # 詳細メタデータを作成
-          COMMIT_COUNT=$(wc -l < daily_commits_raw.txt)
-          FILES_CHANGED=$(grep -c '^' daily_cumulative_diff_raw.txt 2>/dev/null || echo "0")
-
-          cat > "$TARGET_DIR/metadata.json" << EOF
-          {
-            "repository": "$GITHUB_REPOSITORY",
-            "date": "$DATE",
-            "branch": "$GITHUB_REF_NAME",
-            "latest_commit_sha": "$GITHUB_SHA",
-            "sync_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "workflow_run": "$GITHUB_RUN_ID",
-            "daily_commit_count": $COMMIT_COUNT,
-            "daily_files_changed": $FILES_CHANGED,
-            "has_activity": $([ $COMMIT_COUNT -gt 0 ] && echo "true" || echo "false"),
-            "files": {
-              "summary": "daily_summary.md",
-              "commits": "daily_commits.md",
-              "file_changes": "daily_cumulative_diff.md",
-              "stats": "daily_diff_stats.md",
-              "code_diff": "daily_code_diff.md",
-              "latest_diff": "latest_diff.md",
-              "latest_code_diff": "latest_code_diff.md"
-            }
-          }
-          EOF
-
-          # タイムスタンプ付きでコミット・プッシュ
-          cd daily-report-hub
-          git add .
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "📊 Daily sync: $REPO_NAME ($DATE) - $COMMIT_COUNT commits"
-            git push
-          fi
+      - name: Sync to report hub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
+        run: ./.github/scripts/sync-to-hub.sh
