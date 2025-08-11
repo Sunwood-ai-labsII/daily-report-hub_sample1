@@ -17,6 +17,12 @@ CREATE_PR=${CREATE_PR:-true}
 AUTO_APPROVE=${AUTO_APPROVE:-false}
 AUTO_MERGE=${AUTO_MERGE:-false}
 
+# デバッグ用：環境変数を表示
+echo "🔍 Environment Variables:"
+echo "  CREATE_PR: $CREATE_PR"
+echo "  AUTO_APPROVE: $AUTO_APPROVE"
+echo "  AUTO_MERGE: $AUTO_MERGE"
+
 # daily-report-hubは既にクローン済み
 
 # README.mdをコピー
