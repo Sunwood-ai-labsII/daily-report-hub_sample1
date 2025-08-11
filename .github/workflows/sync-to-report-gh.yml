@@ -50,4 +50,4 @@ jobs:
           YUKIHIKO_TOKEN: ${{ secrets.YUKIHIKO_TOKEN }}     # PR作成用
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}              # デフォルト
           REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
-        run: ./.github/scripts/sync-to-hub-yukihiko.sh
+        run: ./.github/scripts/sync-to-hub-gh.sh
