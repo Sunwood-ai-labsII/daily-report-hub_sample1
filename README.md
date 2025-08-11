@@ -4,8 +4,6 @@
 
 # daily-report-hub_sample1
 
-![Omikuji App](https://via.placeholder.com/800x200/FF6B6B/FFFFFF?text=🎋+Omikuji+App+⛩️)
-
 <p>
   <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" alt="HTML5">
   <img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white" alt="CSS3">
@@ -27,7 +25,7 @@
 
 <div align="center">
 
-![App Screenshot](https://via.placeholder.com/600x400/F0F0F0/333333?text=🎋+おみくじアプリ+⛩️)
+![App Screenshot](https://github.com/user-attachments/assets/fc8363f1-3a9f-4684-9b5d-b000a0a9a788)
 
 </div>
 
