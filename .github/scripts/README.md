@@ -74,6 +74,47 @@ env:
   WEEK_START_DAY: 1  # 0=日曜日, 1=月曜日, 2=火曜日, etc.
 ```
 
+## プルリクエストフロー設定
+
+v2.0では、プルリクエストベースのフローと自動承認機能が追加されました：
+
+```yaml
+env:
+  WEEK_START_DAY: 1     # 週の開始日
+  AUTO_APPROVE: true    # プルリクエストの自動承認
+  AUTO_MERGE: true      # プルリクエストの自動マージ
+  CREATE_PR: true       # プルリクエストを作成するか直接プッシュするか
+```
+
+### 設定オプション
+
+| 設定 | 説明 | デフォルト |
+|------|------|------------|
+| `CREATE_PR` | `true`: プルリクエストを作成<br>`false`: 直接プッシュ | `true` |
+| `AUTO_APPROVE` | `true`: プルリクエストを自動承認<br>`false`: 手動承認が必要 | `false` |
+| `AUTO_MERGE` | `true`: 承認後に自動マージ<br>`false`: 手動マージが必要 | `false` |
+
+### フロー例
+
+1. **完全自動化**: `CREATE_PR=true`, `AUTO_APPROVE=true`, `AUTO_MERGE=true`
+   - プルリクエスト作成 → 自動承認 → 自動マージ
+
+2. **承認のみ手動**: `CREATE_PR=true`, `AUTO_APPROVE=false`, `AUTO_MERGE=true`
+   - プルリクエスト作成 → 手動承認 → 自動マージ
+
+3. **完全手動**: `CREATE_PR=true`, `AUTO_APPROVE=false`, `AUTO_MERGE=false`
+   - プルリクエスト作成 → 手動承認 → 手動マージ
+
+4. **直接プッシュ**: `CREATE_PR=false`
+   - 従来通りの直接プッシュ（v1.4と同じ動作）
+
+## ワークフローファイル
+
+2つのバージョンが利用可能です：
+
+- `sync-to-report.yml`: cURLベースの実装
+- `sync-to-report-gh.yml`: GitHub CLI使用版（推奨）
+
 ## フォルダ構造
 
 生成されるフォルダ構造：
