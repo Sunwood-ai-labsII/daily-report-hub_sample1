@@ -36,7 +36,7 @@ jobs:
       - name: Clone report hub and create structure
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
         run: |
           # Git設定
           git config --global user.name "GitHub Actions Bot"
@@ -48,11 +48,11 @@ jobs:
       - name: Create Docusaurus structure
         run: ./.github/scripts/create-docusaurus-structure.sh
 
-      - name: Sync to report hub with PR flow
+      - name: Sync to report hub with PR flow (GitHub CLI)
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labs/daily-report-hub' }}
+          REPORT_HUB_REPO: ${{ vars.REPORT_HUB_REPO || 'Sunwood-ai-labsII/daily-report-hub' }}
           AUTO_APPROVE: ${{ env.AUTO_APPROVE }}
           AUTO_MERGE: ${{ env.AUTO_MERGE }}
           CREATE_PR: ${{ env.CREATE_PR }}
-        run: ./.github/scripts/sync-to-hub.sh
+        run: ./.github/scripts/sync-to-hub-gh.sh
